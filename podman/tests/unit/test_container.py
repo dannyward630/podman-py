@@ -527,6 +527,31 @@ class ContainersTestCase(unittest.TestCase):
             {"Detach": False, "Tty": True},
         )
 
+    def test_exec_run_tty_stream_returns_raw_output(self):
+        """TTY streams are raw bytes, not multiplexed frames."""
+        chunks = [b"hello ", b"world\r\n"]
+        container = Container(attrs=FIRST_CONTAINER, client=self.client.api)
+        for demux in (False, True):
+            with self.subTest(demux=demux):
+                exec_resp = MagicMock()
+                exec_resp.raise_for_status.return_value = None
+                exec_resp.json.return_value = {"Id": "exec1"}
+
+                start_resp = MagicMock()
+                start_resp.raise_for_status.return_value = None
+                start_resp.iter_content.return_value = iter(chunks)
+
+                with patch.object(container.api, "post", side_effect=[exec_resp, start_resp]):
+                    rc, output = container.exec_run(
+                        ["printf", "hello world\n"],
+                        tty=True,
+                        stream=True,
+                        demux=demux,
+                    )
+
+                self.assertIsNone(rc)
+                self.assertEqual(list(output), chunks)
+
     def test_status(self):
         c_inspect = Container(attrs={"State": {"Status": "running"}}, client=self.client.api)
         self.assertEqual(c_inspect.status, "running")

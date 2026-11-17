@@ -184,7 +184,8 @@ class Container(PodmanResource):
                 The exit code of the provided command. ``None`` if ``stream``.
             ``output``:
                 If ``stream``, then a generator yielding response chunks.
-                If ``demux``, then a tuple of (``stdout``, ``stderr``).
+                If ``demux`` and ``tty`` is false, then a tuple of (``stdout``, ``stderr``).
+                TTY output is merged and is yielded as bytes.
                 Else the response content.
                 If ``socket``, then ``(None, socket)`` where ``socket`` is the
                     raw bidirectional connection to the exec session
@@ -255,6 +256,8 @@ class Container(PodmanResource):
         start_resp.raise_for_status()
 
         if stream:
+            if tty:
+                return None, start_resp.iter_content(chunk_size=None)
             return None, api.stream_frames(start_resp, demux=demux)
 
         # get and return exec information
